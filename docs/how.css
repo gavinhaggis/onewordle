@@ -139,7 +139,8 @@ b.g { color: var(--green); } b.y { color: var(--yellow); } b.x { color: var(--mu
 .fn-block h3 { font-family: var(--mono); font-size: 1rem; }
 .fn-block h3 small { font-family: -apple-system, system-ui, sans-serif; font-weight: 500; color: var(--muted); font-size: .8rem; margin-left: 6px; }
 .fn-block .demo { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: .86rem; color: var(--muted); }
-.fn-block .demo > span { display: inline-flex; gap: 8px; align-items: center; }
+.fn-block .demo > span { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.fn-block > * { min-width: 0; }
 pre.code { margin: 0; background: var(--code-bg); color: var(--code-fg); border-radius: 12px; padding: 14px 16px; overflow-x: auto;
   font: .8rem/1.6 var(--mono); tab-size: 2; }
 pre.code .c { color: var(--code-com); font-style: italic; }
