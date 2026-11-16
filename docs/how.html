@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Onewordle Works</title>
+<meta name="description" content="Type any five-letter word and see every puzzle it makes, plus the exact code that builds and checks every Onewordle puzzle.">
+<meta name="theme-color" content="#3c4fd8">
+<link rel="icon" href="favicon.ico" sizes="48x48">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="how.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./">One<span>wordle</span></a>
+  <nav><a href="#explore">Explore</a><a href="#pipeline">Pipeline</a><a href="#code">Code</a><a href="#check">Check</a></nav>
+</header>
+
+<div class="wrap">
+  <section class="hero">
+    <p class="eyebrow">How it works</p>
+    <h1>One wrong guess, one possible answer</h1>
+    <p class="lead">Every puzzle is a wrong guess and its colours, chosen so that only one word in the dictionary could have produced them. Type any word below to see every puzzle it makes. Further down is the code this page actually runs to work that out.</p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section id="explore">
+    <p class="eyebrow">Explore a word</p>
+    <h2>What does a word link to?</h2>
+    <div class="finder">
+      <input id="word" maxlength="5" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" inputmode="text" aria-label="Five-letter word" placeholder="plant">
+      <div class="chips" id="chips"></div>
+    </div>
+    <p class="wordinfo" id="wordInfo"></p>
+    <div class="seg" role="tablist" id="tabs">
+      <button role="tab" data-tab="clue" aria-selected="true">As the clue <span id="nClue"></span></button>
+      <button role="tab" data-tab="answer" aria-selected="false">As the answer <span id="nAnswer"></span></button>
+      <button role="tab" data-tab="buckets" aria-selected="false">Every colour pattern <span id="nBuckets"></span></button>
+    </div>
+    <p class="tabnote" id="tabNote"></p>
+    <div class="filters" id="filters">
+      <label><input type="checkbox" id="onlyKept"> Only puzzles in the game</label>
+    </div>
+    <div id="results" class="cards"></div>
+    <button class="more" id="more" hidden>Show more</button>
+    <p class="verify" id="verify"></p>
+  </section>
+
+  <section>
+    <p class="eyebrow">The shape system</p>
+    <h2>Every puzzle has a shape</h2>
+    <p>A shape is three numbers that add up to five. <b class="g">G</b> letters are already in place. <b class="y">Y</b> letters are shown but have to move. <b class="x">X</b> letters aren't shown at all, so you have to come up with them. The grid counts every one-answer clue without a grey clash by its greens and yellows. Only the outlined cells go into the game, because playtesting found 1–2 greens and 1–2 yellows the most fun.</p>
+    <div class="panel"><div class="scroll"><div class="shapegrid" id="shapeGrid"></div></div>
+      <p class="small muted" id="shapeNote"></p></div>
+  </section>
+
+  <section id="pipeline">
+    <p class="eyebrow">The pipeline</p>
+    <h2>From dictionary to daily puzzle</h2>
+    <p>build.py runs these steps once and writes the puzzle files the game loads. Bar lengths use a log scale. Each step names the function below that does it.</p>
+    <ol class="rail" id="rail"></ol>
+  </section>
+
+  <section id="code">
+    <p class="eyebrow">The code</p>
+    <h2>The actual rules, line by line</h2>
+    <p>These are the functions running on this page right now. The text in each box is read straight from the running code, so it can't drift from what the page does. <a href="https://github.com/gavinhaggis/onewordle/blob/main/build.py">build.py</a> does the same maths in Python with numpy so it can check six million pairs in a few seconds, and the check below proves the two agree.</p>
+    <div id="fns" class="fns"></div>
+  </section>
+
+  <section id="check">
+    <p class="eyebrow">Check it yourself</p>
+    <h2>Re-derive every puzzle in your browser</h2>
+    <p>This runs the code above over every common word as a clue against all 8,636 words: about 22 million colour checks. Then it compares each one-answer clue, its verdict and its difficulty measures with what build.py produced.</p>
+    <div class="panel">
+      <p id="scoreCheck"></p>
+      <div class="auditrow"><button class="primary" id="audit">Run the full check</button><span class="muted small" id="auditNote">Takes about 20 seconds on a laptop, longer on a phone.</span></div>
+      <div class="bar" id="auditBar" hidden><i></i></div>
+      <p id="auditOut"></p>
+    </div>
+  </section>
+
+  <footer>
+    <a href="./">Play today's three</a> · <a href="practice.html">Practice</a> · <a href="https://github.com/gavinhaggis/onewordle">Source on GitHub</a>
+  </footer>
+</div>
+
+<script src="words.js"></script>
+<script src="how-data.js"></script>
+<script src="schedule.js"></script>
+<script src="rules.js"></script>
+<script src="how.js"></script>
+</body>
+</html>

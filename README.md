@@ -14,6 +14,8 @@ You're shown a wrong five-letter guess with its green, yellow and grey tiles. Ex
 
 `docs/practice.html` is the earlier 10-round game, with one-row and two-row modes, and isn't timed.
 
+`docs/how.html` explains how it works. Type any word to see every puzzle it makes as a clue and as an answer, and every colour pattern it splits the dictionary into. The rules it runs live in `docs/rules.js`. These are short, readable JS versions of build.py's maths, shown on the page as their own source. `docs/how-data.js` is build.py's list of every one-answer pair, so the page can check that its answers match the build. Today's puzzles are hidden there until you've played.
+
 ## Files
 
 | Path | What |
@@ -22,6 +24,7 @@ You're shown a wrong five-letter guess with its green, yellow and grey tiles. Ex
 | `docs/` | The site GitHub Pages serves |
 | `docs/schedule.js` | Three puzzles per day for about 3 years, lightly scrambled so answers aren't readable at a glance |
 | `docs/puzzles.js`, `docs/words.js` | The practice puzzle packs, and the list of words the game accepts |
+| `docs/rules.js`, `docs/how.*`, `docs/how-data.js` | How it works page: readable rules, explorer, and build.py's pairs for comparison |
 | `report/template.html` | Pipeline explainer. `build.py` writes `report/index.html` from it (that file isn't committed) |
 
 ## Rebuild the puzzles

@@ -354,6 +354,41 @@ def write_report(L):
     print("report: example", g, pat, "->", ex["answer"], "rivals", len(rivals))
 
 
+# ---------------------------------------------------------------- how it works page
+def write_how(L):
+    """docs/how-data.js: everything the How it works page needs to re-run the rules in the browser
+    and check its answers against this build: word classes, commonness, and every unique pair."""
+    V, c, A, one, stats = L["V"], L["c"], L["A"], L["one"], L["stats"]
+    names = proper_names()
+    blocked = set()
+    for f in ("blocklist.list", "nsfw-ldnoobw.list"):
+        if (DATA / f).exists():
+            blocked |= {w.strip().lower() for w in (DATA / f).read_text().splitlines()}
+    Aset = set(A)
+    # a = answer and clue word, n = name, b = blocked (never shown), v = valid but too rare
+    cls = "".join("b" if w in blocked else "n" if w in names else "a" if w in Aset else "v" for w in V)
+    bands = CONFIG["bands"]
+    links = []
+    for link in L["links"]:
+        if link[3] == 0:
+            pz = one[link[4]]
+            f = pz["features"]
+            link = link[:4] + [f["G"], f["Y"], f["X"], f["n_gy"], f["near_w"], pz["D"], bands.index(pz["band"])]
+        links.append(link)
+    data = {
+        "config": {k: CONFIG[k] for k in ("tau_answer", "min_revealed", "one_greens", "one_yellows", "weights", "bands")},
+        "cls": cls,
+        "zipf": [int(round(c[w] * 100)) for w in V],
+        "links": links,
+        "funnel": {"V": len(V), "A": len(A), "pairs": stats["pairs"], "unique": stats["unique"],
+                   "ambiguous": stats["rej_ambiguous"], "no_clues": stats["rej_no_clues"],
+                   "shape": stats["rej_shape"], "kept": len(one), "easy": len(L["easy"]),
+                   "daily_days": CONFIG["daily_days"]},
+    }
+    (OUT / "how-data.js").write_text("window.ONEWORDLE_HOW = " + json.dumps(data, separators=(",", ":")) + ";\n")
+    print(f"how: {len(links)} unique pairs, {(OUT / 'how-data.js').stat().st_size / 1e3:.0f} kB")
+
+
 # ---------------------------------------------------------------- main
 def main():
     rng = random.Random(CONFIG["seed"])
@@ -379,6 +414,7 @@ def main():
     stats = Counter()
     bucket_sizes = Counter()   # for every (guess, answer) pair: how many words share its pattern
     shape_unique = Counter()   # (G, Y) of every unique, unambiguous pair, before the shape window
+    links = []                 # every unique pair and what happened to it, for the How it works page
     for gi, g in enumerate(P):
         row = M[gi]
         hist = np.bincount(row, minlength=243)
@@ -396,19 +432,26 @@ def main():
                 continue
             stats["unique"] += 1
             a = V[aj]
+            link = [vidx[g], int(aj), p]
+            links.append(link)
             if ambiguous(g, p):
                 stats["rej_ambiguous"] += 1
+                link.append(1)
                 continue
             G, Y, X = shape(a, [(g, p)])
             if G + Y < CONFIG["min_revealed"]:
                 stats["rej_no_clues"] += 1
+                link.append(2)
                 continue
             shape_unique[(G, Y)] += 1
             lo, hi = CONFIG["one_greens"]
             ylo, yhi = CONFIG["one_yellows"]
             if not (lo <= G <= hi and ylo <= Y <= yhi):
                 stats["rej_shape"] += 1
+                link.append(3)
                 continue
+            link.append(0)
+            link.append(len(one))   # replaced by the puzzle's features once scored
             one.append({
                 "answer": a, "rows": [[g, PAT_STR[p]]],
                 "features": {"G": G, "Y": Y, "X": X, "n_gy": int(n_gy[p]), "n_near": int(n_near[p]),
@@ -475,6 +518,7 @@ def main():
 
     write_schedule(one)
     write_report(locals())
+    write_how(locals())
 
     # console summary
     for name, pool in (("one-row", one), ("easy", easy)):
