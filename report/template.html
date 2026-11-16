@@ -1,0 +1,425 @@
+<title>Onewordle Puzzle Pipeline</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one long column; the pipeline is a vertical rail of stage nodes, each with its count drawn to a log scale. */
+:root {
+  --bg: #f2f3f6; --panel: #ffffff; --ink: #16181e; --muted: #5b616d; --line: #dcdfe6; --soft: #e9ebf0;
+  --accent: #3c4fd8; --g: #2f9a68; --y: #d1991a; --x: #7c818b; --drop: #b8473d; --tile-ink: #ffffff;
+  --f-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121419; --panel: #1b1e25; --ink: #eceef2; --muted: #9aa0ab; --line: #2c303a; --soft: #23272f;
+  --accent: #8d9bff; --g: #2f9a68; --y: #c99419; --x: #4d525c; --drop: #e0796f; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121419; --panel: #1b1e25; --ink: #eceef2; --muted: #9aa0ab; --line: #2c303a; --soft: #23272f;
+  --accent: #8d9bff; --g: #2f9a68; --y: #c99419; --x: #4d525c; --drop: #e0796f; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 40px 80px; display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.05; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.05rem; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 600 .72rem var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.mono { font-family: var(--f-mono); }
+section { display: grid; gap: 20px; min-width: 0; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* hero */
+.hero { display: grid; gap: 18px; }
+.hero .clue { margin-top: 6px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; }
+.stat b { font: 700 1.9rem var(--f-display); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: .86rem; }
+
+/* tiles */
+.tiles { display: inline-flex; gap: 3px; vertical-align: middle; }
+.t { width: var(--ts, 30px); height: var(--ts, 30px); display: grid; place-items: center; border-radius: 5px;
+  font: 700 calc(var(--ts, 30px) * .52) var(--f-display); text-transform: uppercase; color: var(--tile-ink); }
+.t.s0 { background: var(--x); } .t.s1 { background: var(--y); } .t.s2 { background: var(--g); }
+.t.hl { outline: 2px solid var(--ink); outline-offset: 2px; }
+.t.plain { background: var(--soft); color: var(--ink); }
+.big { --ts: 46px; }
+.sm { --ts: 22px; }
+
+/* pipeline */
+.rail { position: relative; display: grid; gap: 14px; padding-left: 34px; }
+.rail::before { content: ""; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+.node { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 16px 18px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 8px 28px; }
+.node::before { content: attr(data-step); position: absolute; left: -34px; top: 14px; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--bg); border: 2px solid var(--accent); color: var(--accent);
+  font: 600 .72rem/20px var(--f-mono); text-align: center; }
+.node.group { background: transparent; border: 0; padding: 6px 0 0; display: block; }
+.node.group::before { display: none; }
+.node .what { display: grid; gap: 6px; min-width: 0; }
+.node .what p { font-size: .92rem; color: var(--muted); }
+.node .count { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.count b { font: 700 1.5rem var(--f-display); font-variant-numeric: tabular-nums; }
+.count small { color: var(--muted); }
+.bar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.dropped { font-size: .82rem; color: var(--drop); }
+.code { font: .8rem/1.5 var(--f-mono); background: var(--soft); border-radius: 6px; padding: 2px 6px; }
+@media (max-width: 700px) { .node { grid-template-columns: 1fr; } }
+
+/* panels */
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.steps { display: grid; gap: 18px; counter-reset: s; }
+.step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 14px; }
+.step::before { counter-increment: s; content: counter(s); font: 600 .8rem/28px var(--f-mono); text-align: center;
+  width: 28px; height: 28px; border-radius: 50%; background: var(--soft); color: var(--muted); }
+.step > div { display: grid; gap: 10px; min-width: 0; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.rows { display: grid; gap: 8px; }
+.rowline { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: .9rem; }
+.rowline .lab { min-width: 64px; font: 600 .78rem var(--f-mono); text-transform: uppercase; color: var(--muted); }
+.ok { color: var(--g); font-weight: 600; } .no { color: var(--drop); font-weight: 600; }
+
+/* charts */
+.chart { overflow-x: auto; }
+.chart svg { display: block; min-width: 520px; width: 100%; height: auto; }
+.chart text { fill: var(--muted); font: 11px var(--f-mono); }
+.chart .val { fill: var(--ink); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .82rem; color: var(--muted); }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* shape grid */
+.grid6 { display: grid; grid-template-columns: 70px repeat(6, minmax(44px, 1fr)); gap: 4px; font-size: .78rem; min-width: 420px; }
+.grid6 .h { color: var(--muted); font-family: var(--f-mono); display: grid; place-items: center; }
+.cell { height: 46px; border-radius: 6px; display: grid; place-items: center; font: 600 .78rem var(--f-mono);
+  font-variant-numeric: tabular-nums; position: relative; }
+.cell.keep { outline: 2px solid var(--g); outline-offset: 1px; }
+.cell.cut::after { content: ""; position: absolute; inset: 0; border-radius: 6px;
+  background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--drop) 22%, transparent) 6px 8px); }
+
+/* formula */
+.formula { font: 600 1.05rem var(--f-mono); overflow-x: auto; padding: 12px 14px; background: var(--soft); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 .72rem var(--f-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.tablewrap { overflow-x: auto; }
+
+/* browsers */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.seg button { border: 0; background: var(--panel); color: var(--muted); font: 500 .85rem var(--f-body); padding: 7px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+input[type=search] { font: inherit; padding: 7px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); width: 180px; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wordgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.w { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 7px 10px; border-radius: 8px; background: var(--soft); font-size: .8rem; }
+.w b { font: 600 .9rem var(--f-mono); text-transform: uppercase; letter-spacing: .04em; }
+.w .z { color: var(--muted); font-family: var(--f-mono); text-align: right; }
+.w .meta { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
+.w .zb { grid-column: 1 / -1; height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.w .zb i { display: block; height: 100%; background: var(--accent); }
+.w.v b { color: var(--muted); } .w.n b { color: var(--y); }
+.plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.pz { background: var(--soft); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; font-size: .78rem; }
+.pz .ans { display: flex; justify-content: space-between; color: var(--muted); font-family: var(--f-mono); }
+.pz .ans b { color: var(--ink); text-transform: uppercase; letter-spacing: .05em; }
+.band { font: 600 .66rem var(--f-mono); text-transform: uppercase; letter-spacing: .08em; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line); }
+.more { justify-self: start; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 10px; padding: 8px 14px; font: inherit; cursor: pointer; }
+footer { color: var(--muted); font-size: .82rem; }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Onewordle · how a puzzle is made</div>
+    <h1>One wrong guess, one possible answer</h1>
+    <p class="muted">Every puzzle in the game is a wrong five-letter guess plus its colours, chosen so that exactly one valid word could have produced them. This page traces every word from the dictionary to the game, with the real counts from the latest build.</p>
+    <div class="clue" id="heroClue"></div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <div class="eyebrow">The pipeline</div>
+    <h2>From dictionary to game</h2>
+    <p class="muted">Bars use a log scale, because the counts run from millions down to thousands. Word counts and puzzle counts each have their own scale.</p>
+    <div class="rail" id="rail"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The uniqueness check, worked through</div>
+    <h2 id="exTitle"></h2>
+    <div class="panel steps" id="example"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Across every pair</div>
+    <h2>How rare is a one-answer clue?</h2>
+    <p class="muted" id="bucketNote"></p>
+    <div class="panel"><div class="chart" id="bucketChart"></div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Repeated letters</div>
+    <h2>Greens first, then yellows from what's left</h2>
+    <div class="two" id="dupes"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Clue shapes</div>
+    <h2>Which shapes make the cut</h2>
+    <p class="muted">Every unique, unambiguous one-row puzzle, grouped by how many greens and yellows its clue shows. Only the outlined cells (1–2 greens, 1–2 yellows) go into the one-row game. Rows with 4 greens are never used.</p>
+    <div class="panel"><div class="chart"><div class="grid6" id="shapeGrid"></div></div>
+      <div class="legend"><span><span class="sw" style="outline:2px solid var(--g)"></span>kept for one-row mode</span><span><span class="sw" style="background:var(--drop);opacity:.4"></span>left out</span></div></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Difficulty</div>
+    <h2>Five measures, one score</h2>
+    <div class="panel">
+      <div class="formula">D = 0.30·U + 0.20·C + 0.25·X + 0.10·Y + 0.15·N</div>
+      <p class="muted">Each measure is turned into its percentile rank across the whole pool (0 = easiest puzzle, 1 = hardest), so they can be added together. The four bands are the quarters of D: gentle, medium, tricky, fiendish.</p>
+      <div class="tablewrap"><table id="featTable"></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The word list</div>
+    <h2>Every five-letter word the game knows</h2>
+    <p class="muted" id="wordNote"></p>
+    <div class="controls">
+      <div class="seg" id="wordTabs"></div>
+      <div class="seg" id="wordSort"></div>
+      <input type="search" id="wordSearch" placeholder="Search words" aria-label="Search words">
+      <span class="muted num" id="wordCount"></span>
+    </div>
+    <div class="wordgrid" id="words"></div>
+    <button class="more" id="wordMore">Show more</button>
+  </section>
+
+  <section>
+    <div class="eyebrow">The puzzles</div>
+    <h2>What ships in the game</h2>
+    <div class="controls">
+      <div class="seg" id="pzMode"></div>
+      <div class="seg" id="pzBand"></div>
+      <input type="search" id="pzSearch" placeholder="Search answer or clue" aria-label="Search puzzles">
+      <span class="muted num" id="pzCount"></span>
+    </div>
+    <div class="plist" id="puzzles"></div>
+    <button class="more" id="pzMore">Show more</button>
+  </section>
+
+  <footer>Generated by <span class="code">build.py</span>. Sources: ENABLE word list (public domain), wordfreq for commonness, macOS names lists, the LDNOOBW NSFW list and a hand blocklist.</footer>
+</div>
+
+<script>const R=/*REPORT*/null;</script>
+<script>
+(() => {
+  const F = R.funnel, E = R.example, C = R.config;
+  const $ = (id) => document.getElementById(id);
+  const n = (x) => Number(x).toLocaleString("en-US");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const tiles = (word, pat, cls = "", hl = -1) => `<span class="tiles ${cls}">${[...word].map((ch, i) =>
+    `<span class="t ${pat ? "s" + pat[i] : "plain"}${i === hl ? " hl" : ""}">${esc(ch)}</span>`).join("")}</span>`;
+  const NAMES = ["grey", "yellow", "green"];
+
+  // hero
+  $("heroClue").innerHTML = `<div class="rowline">${tiles(E.guess, E.pattern, "big")}<span class="muted">→ the only word that fits is</span>${tiles(E.answer, "22222", "big")}</div>`;
+  const stat = (b, s) => `<div class="stat"><b>${b}</b><span>${s}</span></div>`;
+  $("stats").innerHTML = [
+    stat(n(F.one), "one-row puzzles found"),
+    stat(n(F.easy), "two-row (easy) puzzles found"),
+    stat(n(F.one_game + F.easy_game), `in the game (${n(F.one_game)} one-row + ${n(F.easy_game)} two-row)`),
+    stat(n(F.A), `answer words, ${n(F.answers_with_puzzle)} of them with a one-row puzzle`),
+  ].join("");
+
+  // pipeline
+  const lg = (x, max) => Math.max(2, 100 * Math.log10(Math.max(x, 1)) / Math.log10(max));
+  const node = (step, title, body, count, unit, max, dropped) => `
+    <div class="node" data-step="${step}">
+      <div class="what"><h3>${title}</h3><p>${body}</p></div>
+      <div class="count"><div><b>${n(count)}</b> <small>${unit}</small></div>
+        <div class="bar"><i style="width:${lg(count, max)}%"></i></div>
+        ${dropped ? `<div class="dropped">${dropped}</div>` : ""}</div>
+    </div>`;
+  const group = (t) => `<div class="node group"><div class="eyebrow">${t}</div></div>`;
+  const WMAX = F.raw, PMAX = F.pairs;
+  const afterAmb = F.unique - F.ambiguous;
+  $("rail").innerHTML = [
+    group("Words"),
+    node("1", "Load the dictionary", `ENABLE, a public-domain Scrabble-style list. Every length is in there.`, F.raw, "words", WMAX),
+    node("2", "Keep five-letter words", `Lowercase a–z only. These ${n(F.five)} words are the <b>valid set V</b>: anything a player types must be in it, and every one of them is a rival when checking uniqueness.`, F.five, "valid words (V)", WMAX, `− ${n(F.raw - F.five)} other lengths`),
+    node("3", "Keep words people know", `Each word gets a commonness score from <span class="code">wordfreq</span> on the Zipf scale (1 = very rare, 7 = <i>the</i>). Words scoring ${C.tau_answer} or more stay. That's about once per million words of English.`, F.common, "common words", WMAX, `− ${n(F.five - F.common)} rare words (still valid rivals)`),
+    node("4", "Remove names and unsafe words", `Names come from the macOS name lists, or from Webster's listing a word only with a capital letter. Unsafe words come from the LDNOOBW list and a hand blocklist. Removed words still count as rivals; they just never appear on the board.`, F.A, "answers (A) = clue words (P)", WMAX, `− ${n(F.names)} names, − ${n(F.blocked)} blocked`),
+    group("Puzzles"),
+    node("5", "Colour every pair", `Every clue word is scored against every valid word, giving a <span class="mono">${n(F.P)} × ${n(F.five)}</span> table of patterns (about 22 MB, built in seconds). Only pairs whose answer is in A count as candidate puzzles.`, F.pairs, "clue/answer pairs", PMAX),
+    node("6", "Keep clues only one word fits", `For each clue word, group all ${n(F.five)} valid words by the pattern they would show. A pair is a puzzle only if its pattern's group holds exactly one word: the answer.`, F.unique, "unique pairs", PMAX, `− ${n(F.pairs - F.unique)} have two or more fitting words, or are the word itself`),
+    node("7", "Drop ambiguous greys", `If a letter is grey in one tile but green or yellow in another, grey means "no more of this letter" rather than "not in the word". That trips players up, so these are dropped.`, afterAmb, "clear puzzles", PMAX, `− ${n(F.ambiguous)} ambiguous`),
+    node("8", "Keep the sweet-spot shape", `One-row mode keeps clues with ${C.one_greens[0]}–${C.one_greens[1]} greens and ${C.one_yellows[0]}–${C.one_yellows[1]} yellows. That's the shape that played best, and it rules out giveaway rows with 4 greens.`, F.one, "one-row puzzles", PMAX, `− ${n(F.shape)} other shapes`),
+    node("9", "Score and pack", `Each puzzle gets a difficulty score D and a band. The game file keeps at most one puzzle per answer per band, so a word can't keep coming back.`, F.one_game, "one-row puzzles in the game", PMAX, `${n(F.one - F.one_game)} more are held back (same answer, same band)`),
+    node("E", "Two-row (easy) pool", `For each answer, try random first rows until one leaves 2–${C.easy_bucket_max} fitting words (${n(F.easy_tried)} rows tried, ${n(F.easy_usable)} usable). Then find a second row that leaves only the answer, where that row isn't unique on its own either. Neither row may show 4 greens.`, F.easy_game, "two-row puzzles in the game", PMAX),
+  ].join("");
+
+  // worked example
+  const f = E.features;
+  const digits = [...E.pattern].map(Number);
+  $("exTitle").textContent = `${E.guess.toUpperCase()} → ${E.answer.toUpperCase()}, a ${E.band} puzzle`;
+  const sizeRows = Object.entries(E.size_hist).map(([k, v]) => [+k, v]);
+  const rivalRows = E.rivals.map(([w, p, z]) => {
+    const diff = [...p].findIndex((d, i) => d !== E.pattern[i]);
+    const ch = E.guess[diff].toUpperCase();
+    return `<div class="rowline"><span class="lab">${esc(w)}</span>${tiles(E.guess, p, "sm", diff)}
+      <span class="muted">would show ${ch} as ${NAMES[+p[diff]]}, but the clue shows it ${NAMES[+E.pattern[diff]]}</span><span class="no">ruled out</span>
+      <span class="muted mono">Zipf ${z}</span></div>`;
+  }).join("");
+  const nearRows = E.near.map(([w, p, z]) => `<div class="rowline"><span class="lab">${esc(w)}</span>${tiles(E.guess, p, "sm", [...p].findIndex((d, i) => d !== E.pattern[i]))}<span class="muted mono">Zipf ${z}</span></div>`).join("");
+  $("example").innerHTML = `
+    <div class="step"><div>
+      <h3>Read the clue as a number</h3>
+      <p class="muted">Grey = 0, yellow = 1, green = 2. Five tiles in base 3 give one of 3⁵ = 243 possible patterns.</p>
+      <div class="rowline">${tiles(E.guess, E.pattern)}<span class="mono">${E.pattern} → ${digits.map((d, i) => `${d}·${3 ** (4 - i)}`).join(" + ")} = <b>${E.pattern_int}</b></span></div>
+    </div></div>
+    <div class="step"><div>
+      <h3>Score ${E.guess.toUpperCase()} against all ${n(F.five)} valid words</h3>
+      <p class="muted">Those words land in ${E.patterns_used} of the 243 patterns. The biggest group is <span class="mono">${E.largest_bucket[0]}</span> (only ${E.guess[0].toUpperCase()} yellow) with ${n(E.largest_bucket[1])} words. ${E.singleton_patterns} patterns hold exactly one word, and ${E.singleton_answers} of those words are common enough to be answers. ${E.guess.toUpperCase()} can be the clue for at most those ${E.singleton_answers} puzzles.</p>
+      <div class="chart" id="exChart"></div>
+    </div></div>
+    <div class="step"><div>
+      <h3>Pattern ${E.pattern} holds exactly ${E.bucket} word</h3>
+      <div class="rowline">${tiles(E.answer, null)}<span class="ok">the only fit, so it's a puzzle</span></div>
+    </div></div>
+    <div class="step"><div>
+      <h3>Fair, but not a giveaway</h3>
+      <p class="muted">Using only the greens and yellows (ignore the greys), ${f.n_gy} words fit: the answer and ${E.rivals.length} rivals. The grey tiles are what separate them. Each rival below is shown with the colours it would have produced:</p>
+      <div class="rows">${rivalRows}</div>
+      <p class="muted">Rivals with a Zipf score of 0 (like <span class="mono">${esc((E.rivals.find((r) => r[2] < 1) || ["", ""])[0])}</span>) are obscure but still valid. They're checked anyway, so a player who knows them is never cheated.</p>
+    </div></div>
+    <div class="step"><div>
+      <h3>Near misses: one tile away</h3>
+      <p class="muted">${n(f.n_near)} valid words would have produced a pattern just one tile different. The most common ones are traps. These feed the N measure. Changed tile outlined:</p>
+      <div class="rows">${nearRows}</div>
+    </div></div>`;
+  // example bucket chart
+  (() => {
+    const W = 640, H = 170, pad = 30, maxv = Math.max(...sizeRows.map((r) => r[1]));
+    const bw = (W - pad * 2) / sizeRows.length;
+    const bars = sizeRows.map(([k, v], i) => {
+      const h = (H - 50) * v / maxv, x = pad + i * bw, y = H - 26 - h;
+      const col = k === 1 ? "var(--g)" : "var(--x)";
+      return `<rect x="${x + 1}" y="${y}" width="${bw - 2}" height="${h}" rx="2" fill="${col}"><title>${v} patterns hold ${k === 51 ? "51+" : k} word(s)</title></rect>` +
+        (i % 2 === 0 || k === 1 || k === 51 ? `<text x="${x + bw / 2}" y="${H - 10}" text-anchor="middle">${k === 51 ? "51+" : k}</text>` : "") +
+        (k === 1 || k === 51 ? `<text class="val" x="${x + bw / 2}" y="${y - 5}" text-anchor="middle">${v}</text>` : "");
+    }).join("");
+    $("exChart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="How many patterns hold each group size">${bars}
+      <text x="${pad}" y="12">patterns</text><text x="${W - pad}" y="${H - 10}" text-anchor="end"></text></svg>
+      <div class="legend"><span><span class="sw" style="background:var(--g)"></span>one word: a possible puzzle</span><span><span class="sw" style="background:var(--x)"></span>2+ words: not unique</span><span>x-axis: words per pattern</span></div>`;
+  })();
+
+  // bucket chart across all pairs
+  (() => {
+    const bins = [["1", 1, 1], ["2", 2, 2], ["3–5", 3, 5], ["6–10", 6, 10], ["11–50", 11, 50], ["51–200", 51, 200], ["201–500", 201, 500], ["500+", 501, 1e9]];
+    const tot = Object.values(R.bucket_sizes).reduce((a, b) => a + b, 0);
+    const self = F.A;  // a word against itself: all green, always alone
+    const rows = bins.map(([lab, lo, hi]) => [lab, Object.entries(R.bucket_sizes).reduce((s, [k, v]) => (+k >= lo && +k <= hi ? s + v : s), 0)]);
+    rows[0][1] -= self;
+    const W = 640, H = 200, pad = 40, maxv = Math.max(...rows.map((r) => r[1])), bw = (W - pad * 2) / rows.length;
+    const bars = rows.map(([lab, v], i) => {
+      const h = (H - 60) * v / maxv, x = pad + i * bw, y = H - 28 - h;
+      return `<rect x="${x + 6}" y="${y}" width="${bw - 12}" height="${Math.max(h, 1)}" rx="3" fill="${i === 0 ? "var(--g)" : "var(--x)"}"></rect>
+        <text class="val" x="${x + bw / 2}" y="${y - 6}" text-anchor="middle">${(100 * v / (tot - self)).toFixed(v / (tot - self) < .01 ? 2 : 1)}%</text>
+        <text x="${x + bw / 2}" y="${H - 10}" text-anchor="middle">${lab}</text>`;
+    }).join("");
+    $("bucketChart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Share of pairs by number of fitting words">${bars}</svg>
+      <div class="legend"><span>x-axis: how many valid words show the same colours as the pair</span></div>`;
+    $("bucketNote").textContent = `Of ${n(tot - self)} clue/answer pairs (leaving out each word scored against itself), only ${n(F.unique)} (${(100 * F.unique / (tot - self)).toFixed(2)}%) have a pattern that a single word produces. Most clues are compatible with dozens or hundreds of words. That's why the generator has to check all ${n(F.pairs)} pairs: good puzzles are rare.`;
+  })();
+
+  // duplicates
+  $("dupes").innerHTML = `
+    <div class="panel"><h3>SPEED against ABIDE</h3>
+      <div class="rowline">${tiles("speed", "00101")}</div>
+      <p class="muted">ABIDE has one E. The first E in SPEED (tile 3) takes it and turns yellow. The second E finds none left and stays grey. D is in ABIDE but elsewhere, so it's yellow.</p>
+      <p class="muted">The builder colours greens first, then yellows left to right from the letters left over. The game uses the same rule when it colours your wrong answers.</p></div>
+    <div class="panel"><h3>Why mixed greys are dropped</h3>
+      <div class="rowline">${tiles("eerie", "10002")}<span class="muted">answer THEME</span></div>
+      <p class="muted">E is yellow, grey <i>and</i> green in the same row. The grey E doesn't mean "no E". It means "no third E". It's correct, but it reads like a contradiction, so ${n(F.ambiguous)} puzzles like this are left out.</p></div>`;
+
+  // shape grid
+  (() => {
+    const map = {}; let max = 0;
+    R.shape_unique.forEach(([g, y, k]) => { map[g + "," + y] = k; max = Math.max(max, k); });
+    let html = `<div class="h"></div>` + [0, 1, 2, 3, 4, 5].map((y) => `<div class="h">${y} 🟨</div>`).join("");
+    for (let g = 0; g <= 4; g++) {
+      html += `<div class="h">${g} 🟩</div>`;
+      for (let y = 0; y <= 5; y++) {
+        const k = map[g + "," + y];
+        const keep = g >= C.one_greens[0] && g <= C.one_greens[1] && y >= C.one_yellows[0] && y <= C.one_yellows[1];
+        if (g + y > 5) { html += `<div></div>`; continue; }
+        const a = k ? 0.12 + 0.6 * Math.sqrt(k / max) : 0;
+        html += `<div class="cell ${keep ? "keep" : k ? "cut" : ""}" style="background:color-mix(in srgb, var(--accent) ${Math.round(a * 100)}%, var(--soft))" title="${g} greens, ${y} yellows: ${k || 0} puzzles">${k ? n(k) : "–"}</div>`;
+      }
+    }
+    $("shapeGrid").innerHTML = html;
+  })();
+
+  // features table
+  const feat = [
+    ["U", "Uniqueness load", "log₂ of how many words fit the greens and yellows alone", `${f.n_gy} words → ${Math.log2(f.n_gy).toFixed(2)}`, "0.30"],
+    ["C", "Commonness", "How rare the answer is (higher Zipf = easier)", `Zipf ${f.c_answer}`, "0.20"],
+    ["X", "Letters to invent", "Answer letters no tile shows: 5 − greens − yellows", `${f.X}`, "0.25"],
+    ["Y", "Letters to move", "Yellow letters that need a new position", `${f.Y}`, "0.10"],
+    ["N", "Near misses", "Words one tile off, weighted by how well-known they are", `${f.n_near} words, weight ${f.near_w}`, "0.15"],
+  ];
+  $("featTable").innerHTML = `<tr><th></th><th>Measure</th><th>What it counts</th><th>${esc(E.guess.toUpperCase())} → ${esc(E.answer.toUpperCase())}</th><th>Weight</th></tr>` +
+    feat.map((r) => `<tr><td class="mono"><b>${r[0]}</b></td><td>${r[1]}</td><td class="muted">${r[2]}</td><td class="mono">${r[3]}</td><td class="mono">${r[4]}</td></tr>`).join("") +
+    `<tr><td></td><td colspan="2"><b>Result</b></td><td class="mono"><b>D = ${E.D}</b> → ${E.band}</td><td></td></tr>`;
+
+  // word browser
+  const W = R.words;
+  const blockedN = W.filter((w) => w[2] === "b").length;
+  $("wordNote").innerHTML = `${n(F.A)} answers in <b>bold</b>, ${n(W.filter((w) => w[2] === "v").length)} valid-only words in grey (accepted as guesses and checked as rivals), and ${n(F.names)} names in amber. ${n(blockedN)} blocked words are counted but not listed here. Each card shows the Zipf commonness score and how many one-row puzzles use the word.`;
+  const wst = { tab: "a", sort: "z", q: "", shown: 120 };
+  const seg = (el, opts, key, st, cb) => {
+    el.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${st[key] === v}">${l}</button>`).join("");
+    el.onclick = (e) => { const b = e.target.closest("button"); if (!b) return; st[key] = b.dataset.v; st.shown = 120;
+      el.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b)); cb(); };
+  };
+  function drawWords() {
+    let list = W.filter((w) => w[2] !== "b" && (wst.tab === "all" || w[2] === wst.tab) && (!wst.q || w[0].includes(wst.q)));
+    if (wst.sort === "z") list = list.slice().sort((a, b) => b[1] - a[1]);
+    else if (wst.sort === "p") list = list.slice().sort((a, b) => b[3] + b[4] - a[3] - a[4]);
+    $("wordCount").textContent = `${n(list.length)} words`;
+    $("words").innerHTML = list.slice(0, wst.shown).map(([w, z, fl, na, nc]) =>
+      `<div class="w ${fl}"><b>${esc(w)}</b><span class="z">${z.toFixed(2)}</span><span class="zb"><i style="width:${Math.min(100, z / 7 * 100)}%"></i></span>
+       <span class="meta">${fl === "a" ? `${na} as answer · ${nc} as clue` : fl === "n" ? "name: never shown" : "valid, rare: rival only"}</span></div>`).join("");
+    $("wordMore").hidden = list.length <= wst.shown;
+  }
+  seg($("wordTabs"), [["a", "Answers"], ["v", "Valid only"], ["n", "Names"], ["all", "All"]], "tab", wst, drawWords);
+  seg($("wordSort"), [["z", "Most common"], ["p", "Most used"], ["abc", "A–Z"]], "sort", wst, drawWords);
+  $("wordSearch").oninput = (e) => { wst.q = e.target.value.trim().toLowerCase(); wst.shown = 120; drawWords(); };
+  $("wordMore").onclick = () => { wst.shown += 240; drawWords(); };
+  drawWords();
+
+  // puzzle browser
+  const pst = { mode: "one", band: "all", q: "", shown: 60 };
+  function drawPuzzles() {
+    const list = R.puzzles[pst.mode].filter((p) => (pst.band === "all" || p[2] === pst.band) &&
+      (!pst.q || p[0].includes(pst.q) || p[1].some((r) => r.slice(0, 5).includes(pst.q))));
+    $("pzCount").textContent = `${n(list.length)} puzzles`;
+    $("puzzles").innerHTML = list.slice(0, pst.shown).map(([a, rows, band, D, G, Y, X, ngy]) =>
+      `<div class="pz">${rows.map((r) => tiles(r.slice(0, 5), r.slice(5), "sm")).join("")}
+        <div class="ans"><span>→ <b>${esc(a)}</b></span><span class="band">${band}</span></div>
+        <div class="ans"><span>${G}🟩 ${Y}🟨 ${X} to invent</span><span>D ${D.toFixed(2)} · fits ${ngy}</span></div></div>`).join("");
+    $("pzMore").hidden = list.length <= pst.shown;
+  }
+  seg($("pzMode"), [["one", "One row"], ["easy", "Two rows"]], "mode", pst, drawPuzzles);
+  seg($("pzBand"), [["all", "All"], ["gentle", "Gentle"], ["medium", "Medium"], ["tricky", "Tricky"], ["fiendish", "Fiendish"]], "band", pst, drawPuzzles);
+  $("pzSearch").oninput = (e) => { pst.q = e.target.value.trim().toLowerCase(); pst.shown = 60; drawPuzzles(); };
+  $("pzMore").onclick = () => { pst.shown += 120; drawPuzzles(); };
+  drawPuzzles();
+})();
+</script>

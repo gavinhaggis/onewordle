@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onewordle</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1><a href="./" class="home">One<span>wordle</span></a> <small class="tagline">practice</small></h1>
+  <div class="hud">
+    <span id="round">Round 1 / 10</span>
+    <span id="score">Score 0</span>
+  </div>
+</header>
+
+<section id="setup" class="panel">
+  <p class="lead">Someone guessed wrong. The colours tell you enough to find the <b>only</b> word that fits.</p>
+  <div class="opt">
+    <span class="lbl">Mode</span>
+    <label><input type="radio" name="mode" value="one" checked> One row <small>(intended)</small></label>
+    <label><input type="radio" name="mode" value="easy"> Two rows <small>(easy)</small></label>
+  </div>
+  <div class="opt">
+    <span class="lbl">Difficulty</span>
+    <select id="band">
+      <option value="mixed">Mixed, ramping up</option>
+      <option value="gentle">Gentle</option>
+      <option value="medium">Medium</option>
+      <option value="tricky">Tricky</option>
+      <option value="fiendish">Fiendish</option>
+    </select>
+  </div>
+  <ul class="rules">
+    <li><b class="g">Green</b>: right letter, right place. <b class="y">Yellow</b>: in the word, wrong place. <b class="x">Grey</b>: not in the word.</li>
+    <li>Solve: +10 / 20 / 30 / 40 by difficulty. Each wrong answer: <b>−5</b>, and its colours are added below. Give up: −10.</li>
+    <li>5 answers per round. 10 rounds.</li>
+  </ul>
+  <button id="start" class="primary">Start</button>
+  <p class="muted" style="font-size:.85rem">Practice rounds don't count. <a href="./">Back to today's puzzles</a>.</p>
+</section>
+
+<main id="play" hidden>
+  <div class="tag"><span id="bandTag"></span></div>
+  <div id="board"></div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div id="after" hidden>
+    <div id="explain"></div>
+    <button id="next" class="primary">Next round</button>
+  </div>
+  <div id="kb"></div>
+  <div class="row-actions"><button id="giveup">Give up</button></div>
+</main>
+
+<section id="end" class="panel" hidden>
+  <h2>Final score <span id="final"></span></h2>
+  <table id="summary"></table>
+  <button id="again" class="primary">Play again</button>
+</section>
+
+<script src="words.js"></script>
+<script src="puzzles.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

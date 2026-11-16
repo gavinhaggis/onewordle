@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Onewordle</title>
+<meta name="description" content="Three five-letter puzzles a day. One wrong guess, one possible answer. Fastest time wins.">
+<meta property="og:title" content="Onewordle">
+<meta property="og:description" content="One wrong guess, one possible answer. Three a day. Fastest time wins.">
+<meta name="theme-color" content="#3c4fd8">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="daily">
+<header>
+  <h1>One<span>wordle</span></h1>
+  <div class="hud">
+    <span id="dayLabel"></span>
+    <span id="clock" class="clock" hidden>0:00</span>
+  </div>
+</header>
+
+<section id="intro" class="panel">
+  <p class="lead">Someone guessed wrong. Their colours leave <b>only one word</b> that fits. Find it, fast.</p>
+  <div class="example" id="example"></div>
+  <ul class="rules">
+    <li><b class="g">Green</b>: right letter, right place. <b class="y">Yellow</b>: in the word, wrong place. <b class="x">Grey</b>: not in the word.</li>
+    <li>Three puzzles, one clock. The clock starts when you press Start.</li>
+    <li>Each wrong answer adds <b>15 seconds</b>, and its colours appear on the board. Giving up on a puzzle adds 60 seconds.</li>
+    <li>One go per day. New puzzles at midnight. Share your time with the family.</li>
+  </ul>
+  <button id="start" class="primary big-btn">Start today's three</button>
+  <p class="small muted">Want to warm up first? <a href="practice.html">Practice mode</a> doesn't count.</p>
+</section>
+
+<main id="play" hidden>
+  <div class="progress" id="progress"></div>
+  <div id="board"></div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div id="kb"></div>
+  <div class="row-actions"><button id="giveup">Give up on this one (+60s)</button></div>
+</main>
+
+<section id="done" class="panel" hidden>
+  <div class="total"><span class="muted">Today's time</span><b id="total">0:00.0</b></div>
+  <div id="splits"></div>
+  <button id="share" class="primary big-btn">Share with the family</button>
+  <pre id="shareText" class="share-text"></pre>
+  <div class="mystats" id="mystats"></div>
+  <p class="muted small" id="nextIn"></p>
+  <p class="small"><a href="practice.html">Practice mode</a></p>
+</section>
+
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="words.js"></script>
+<script src="schedule.js"></script>
+<script src="today.js"></script>
+</body>
+</html>
