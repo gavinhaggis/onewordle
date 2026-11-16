@@ -38,7 +38,8 @@ p { margin: 0; max-width: 68ch; }
 .muted { color: var(--muted); } .small { font-size: .85rem; }
 b.g { color: var(--green); } b.y { color: var(--yellow); } b.x { color: var(--muted); }
 .panel { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
-.scroll { overflow-x: auto; }
+.scroll { overflow-x: auto; min-width: 0; }
+.panel > * { min-width: 0; }
 
 /* stats */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 6px; }
@@ -109,7 +110,8 @@ b.g { color: var(--green); } b.y { color: var(--yellow); } b.x { color: var(--mu
 .empty { color: var(--muted); padding: 16px; border: 1px dashed var(--line); border-radius: 12px; }
 
 /* shape grid */
-.shapegrid { display: grid; grid-template-columns: 72px repeat(6, minmax(46px, 1fr)); gap: 4px; min-width: 400px; font-size: .78rem; }
+.shapegrid { display: grid; grid-template-columns: 56px repeat(6, minmax(36px, 1fr)); gap: 4px; min-width: 280px; font-size: .78rem; }
+@media (max-width: 420px) { .cell { font-size: .66rem; height: 38px; } .shapegrid .h { font-size: .66rem; } }
 .shapegrid .h { display: grid; place-items: center; color: var(--muted); font-family: var(--mono); text-align: center; line-height: 1.2; }
 .cell { height: 44px; border-radius: 6px; display: grid; place-items: center; font: 600 .78rem var(--mono); font-variant-numeric: tabular-nums;
   background: color-mix(in srgb, var(--accent) calc(var(--a) * 70%), var(--soft)); color: var(--fg); }

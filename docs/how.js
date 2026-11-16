@@ -225,7 +225,7 @@
       grid[k] = (grid[k] || 0) + 1;
       max = Math.max(max, grid[k]);
     }
-    let html = `<div class="h">greens ↓ yellows →</div>` + [0, 1, 2, 3, 4, 5].map((y) => `<div class="h">${y}</div>`).join("");
+    let html = `<div class="h">G ↓ Y →</div>` + [0, 1, 2, 3, 4, 5].map((y) => `<div class="h">${y}</div>`).join("");
     for (let g = 0; g <= 4; g++) {
       html += `<div class="h">${g}</div>`;
       for (let y = 0; y <= 5; y++) {
